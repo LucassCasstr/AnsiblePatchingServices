@@ -1,0 +1,9 @@
+- name: Verificar se há reboot pendente
+  win_shell: >
+    (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending")
+    -or
+    (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired")
+  register: reboot_check
+  changed_when: false
+  failed_when: false
+  timeout: "{{ win_ping_timeout }}"

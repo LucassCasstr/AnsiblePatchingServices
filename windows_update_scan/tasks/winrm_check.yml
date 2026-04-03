@@ -1,0 +1,31 @@
+- name: Testar conectividade WinRM
+  win_ping:
+  register: ping_result
+  timeout: "{{ win_ping_timeout }}"
+  changed_when: false
+  ignore_unreachable: yes
+  failed_when: false
+
+- name: Gerar JSON de erro - WinRM indisponível
+  set_fact:
+    updates_json:
+      host: "{{ inventory_hostname }}"
+      scan_date: "{{ lookup('pipe', 'date -Is') }}"
+      status: "error"
+      error: "WinRM indisponível, kerberos ou timeout no win_ping"
+      scan_method: "PING"
+      reboot_pending: null
+      os_version: "Unknown"
+      updates: []
+  when: ping_result.unreachable is defined and ping_result.unreachable
+
+- name: Salvar JSON de erro (PING)
+  copy:
+    content: "{{ updates_json | to_nice_json }}"
+    dest: "{{ update_scan_path }}/{{ inventory_hostname }}_windows_updates.json"
+    mode: "0644"
+  delegate_to: localhost
+  when: ping_result.unreachable is defined and ping_result.unreachable
+
+- meta: end_host
+  when: ping_result.unreachable is defined and ping_result.unreachable

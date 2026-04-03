@@ -1,0 +1,5 @@
+---
+- name: Coletar apenas facts necessários
+  setup:
+    gather_subset:
+      - distribution

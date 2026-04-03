@@ -1,0 +1,40 @@
+---
+- name: Montar JSON final
+  set_fact:
+    updates_json:
+      host: "{{ inventory_hostname }}"
+      scan_date: "{{ ansible_date_time.iso8601 }}"
+      status: "ok"
+      os_family: "{{ ansible_facts.os_family }}"
+      os_version: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+      scan_method: >-
+        {{
+          'YUM_SECURITY' if ansible_facts.os_family == 'RedHat'
+          else 'ZYPPER_SECURITY' if ansible_facts.os_family == 'Suse'
+          else 'APT_SECURITY' if ansible_facts.os_family == 'Debian'
+          else 'UNKNOWN'
+        }}
+      reboot_pending: "{{ reboot_pending }}"
+      updates: "{{ updates_list }}"
+
+- name: Gerar JSON de erro se houve falha
+  set_fact:
+    updates_json:
+      host: "{{ inventory_hostname }}"
+      scan_date: "{{ ansible_date_time.iso8601 }}"
+      status: "error"
+      os_family: "{{ ansible_facts.os_family }}"
+      os_version: "{{ ansible_facts.distribution }} {{ ansible_facts.distribution_version }}"
+      error: "Falha na coleta"
+      scan_method: "NONE"
+      reboot_pending: false
+      updates: []
+  when: updates_raw is failed
+
+- name: Salvar JSON
+  copy:
+    content: "{{ updates_json | to_nice_json }}"
+    dest: "/var/www/ansible/update_scan_linux/{{ inventory_hostname }}_linux_updates.json"
+    mode: "0644"
+  delegate_to: localhost
+

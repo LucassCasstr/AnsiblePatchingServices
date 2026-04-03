@@ -1,0 +1,13 @@
+---
+- include_tasks: fact_check.yml
+- include_tasks: scan_updates.yml
+- include_tasks: check_reboot.yml
+- include_tasks: save_json.yml
+
+
+- name: Sincronizar banco de dados APS com os JSONs de scan
+  uri:
+    url: "http://127.0.0.1:5000/sync-db"
+    method: POST
+  run_once: true
+  delegate_to: localhost

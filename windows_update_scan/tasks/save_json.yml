@@ -1,0 +1,19 @@
+- name: Gerar JSON de erro se nenhum método funcionou
+  set_fact:
+    updates_json:
+      host: "{{ inventory_hostname }}"
+      scan_date: "{{ lookup('pipe', 'date -Is') }}"
+      status: "error"
+      error: "Falha geral ou timeout no host"
+      scan_method: "NONE"
+      reboot_pending: "{{ reboot_check is defined and reboot_check.stdout is defined and (reboot_check.stdout | trim | lower == 'true') }}"
+      os_version: "{{ os_version_result.stdout | default('Unknown') }}"
+      updates: []
+  when: updates_json is not defined
+
+- name: Salvar JSON em arquivo
+  copy:
+    content: "{{ updates_json | to_nice_json }}"
+    dest: "{{ update_scan_path }}/{{ inventory_hostname }}_windows_updates.json"
+    mode: "0644"
+  delegate_to: localhost

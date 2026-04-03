@@ -1,0 +1,16 @@
+---
+- name: Inicializar reboot_pending
+  set_fact:
+    reboot_pending: "UNKNOWN"
+
+- name: Verificar reboot pendente
+  when: reboot_cmd[ansible_facts.os_family] is defined
+  shell: "{{ reboot_cmd[ansible_facts.os_family] }}"
+  register: reboot_raw
+  changed_when: false
+  failed_when: false
+
+- name: Ajustar reboot_pending
+  set_fact:
+    reboot_pending: "{{ reboot_raw.stdout | default('UNKNOWN') }}"
+

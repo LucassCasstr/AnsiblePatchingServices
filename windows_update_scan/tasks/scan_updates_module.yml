@@ -1,0 +1,39 @@
+- name: Listar atualizações de segurança disponíveis (MODULE)
+  win_updates:
+    category_names:
+      - SecurityUpdates
+      - CriticalUpdates
+    state: searched
+  register: security_updates
+  failed_when: false
+  timeout: "{{ win_update_timeout }}"
+
+- name: Obter versão do Windows
+  win_shell: |
+    (Get-CimInstance Win32_OperatingSystem).Caption
+  register: os_version_result
+  changed_when: false
+  failed_when: false
+
+- name: Inicializar estrutura JSON (MODULE)
+  set_fact:
+    updates_json:
+      host: "{{ inventory_hostname }}"
+      scan_date: "{{ lookup('pipe', 'date -Is') }}"
+      status: "ok"
+      error: none
+      scan_method: "MODULE"
+      reboot_pending: "{{ reboot_check is defined and reboot_check.stdout is defined and (reboot_check.stdout | trim | lower == 'true') }}"
+      os_version: "{{ os_version_result.stdout | default('Unknown') }}"
+      updates: []
+
+- name: Adicionar updates via win_updates
+  set_fact:
+    updates_json: "{{ updates_json | combine({
+      'updates': updates_json.updates + [ {
+        'kb': item.value.kb[0] | default(none),
+        'title': item.value.title
+      } ]
+    }) }}"
+  loop: "{{ security_updates.updates | default({}) | dict2items }}"
+  when: security_updates.updates | default({}) | length > 0

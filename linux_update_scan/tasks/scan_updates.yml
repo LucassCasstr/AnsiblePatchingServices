@@ -1,0 +1,12 @@
+---
+- name: Executar coleta de updates
+  when: update_cmd[ansible_facts.os_family] is defined
+  shell: "{{ update_cmd[ansible_facts.os_family] }}"
+  register: updates_raw
+  changed_when: false
+  failed_when: false
+
+- name: Definir lista de updates final
+  set_fact:
+    updates_list: "{{ updates_raw.stdout | default('[]') | from_json }}"
+

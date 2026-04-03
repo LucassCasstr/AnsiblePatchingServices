@@ -1,0 +1,18 @@
+---
+# Chama todas as tasks em ordem
+- include_tasks: winrm_check.yml
+
+- block:
+    - include_tasks: check_reboot.yml
+    - include_tasks: scan_updates_module.yml
+  rescue:
+    - include_tasks: scan_updates_fallback.yml
+  always:
+    - include_tasks: save_json.yml
+
+- name: Sincronizar banco de dados APS com os JSONs de scan
+  uri:
+    url: "http://127.0.0.1:5000/sync-db"
+    method: POST
+  run_once: true
+  delegate_to: localhost

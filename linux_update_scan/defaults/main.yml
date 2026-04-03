@@ -1,0 +1,4 @@
+---
+# Defaults da role
+ansible_become_timeout: 60
+update_scan_path: "/var/www/ansible/update_scan_linux"

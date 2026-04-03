@@ -1,0 +1,85 @@
+---
+update_cmd:
+
+  RedHat: |
+    UPDATES=$(yum --security check-update 2>/dev/null | awk '/^[a-zA-Z0-9]/ {print $1}' | sed 's/\..*//')
+
+    yum updateinfo list security all | awk -v UPDATES="$UPDATES" '
+      BEGIN {
+        n=split(UPDATES,arr,"\n")
+        for(i=1;i<=n;i++){
+          if(arr[i]!="") ok[arr[i]]=1
+        }
+        print "["
+        first=1
+      }
+
+      /^(RHSA|ELSA|ALSA|RLSA)-[0-9]{4}[:\-][0-9]+/ {
+        advisory=$1
+        split($2,sev,"/")
+        severity=sev[1]
+        pkg=$3
+        sub(/-[0-9].*/,"",pkg)
+
+        if (pkg ~ /^kernel($|-)/) pkg="kernel"
+        if (pkg ~ /^kernel-uek($|-)/) pkg="kernel-uek"
+
+        if (pkg=="kernel" || pkg=="kernel-uek") {
+          if (!(pkg in seen_kernel)) {
+            if (!first) printf ",\n"
+            printf "{\"package\":\"%s\",\"advisory\":\"MULTI\",\"severity\":\"MULTI\"}", pkg
+            seen_kernel[pkg]=1
+            first=0
+          }
+          next
+        }
+
+        if (!(pkg in ok)) next
+
+        key=pkg "|" advisory "|" severity
+        if (!(key in seen)) {
+          if (!first) printf ",\n"
+          printf "{\"package\":\"%s\",\"advisory\":\"%s\",\"severity\":\"%s\"}", pkg, advisory, severity
+          seen[key]=1
+          first=0
+        }
+      }
+
+      END {
+        print "\n]"
+      }'
+
+  Suse: |
+    zypper lp --category security | awk '
+      BEGIN { print "["; first=1 }
+      NR>2 {
+        gsub(" \\| ", "|")
+        split($0,a,"|")
+        if (a[6]=="needed") {
+          n=split(a[8],p," ")
+          pkg=p[n]
+          advisory=a[2]
+          severity=a[4]
+
+          if (!first) printf ",\n"
+          printf "{\"package\":\"%s\",\"advisory\":\"%s\",\"severity\":\"%s\"}", pkg, advisory, severity
+          first=0
+        }
+      }
+      END { print "\n]" }'
+
+  Debian: |
+    apt list --upgradable 2>/dev/null | grep -- '-security' | cut -d/ -f1 | awk '
+      BEGIN { print "["; first=1 }
+      {
+        if (!first) printf ",\n"
+        printf "{\"package\":\"%s\",\"advisory\":\"\",\"severity\":\"\"}", $1
+        first=0
+      }
+      END { print "\n]" }'
+
+reboot_cmd:
+  RedHat: "command -v needs-restarting >/dev/null 2>&1 || exit 2; needs-restarting -r >/dev/null 2>&1 && echo false || echo true"
+  Suse: "zypper ps -s 2>/dev/null | grep -qi 'Reboot is suggested' && echo true || echo false"
+  Debian: "[ -f /var/run/reboot-required ] && echo true || echo false"
+

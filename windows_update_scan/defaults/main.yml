@@ -1,0 +1,6 @@
+---
+# Defaults da role
+update_scan_path: "/var/www/ansible/update_scan_windows"
+win_ping_timeout: 120
+win_update_timeout: 180
+fallback_timeout: 600

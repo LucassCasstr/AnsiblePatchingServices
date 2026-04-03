@@ -1,0 +1,45 @@
+- name: Obter versão do Windows (FALLBACK)
+  win_shell: |
+    (Get-CimInstance Win32_OperatingSystem).Caption
+  register: os_version_result
+  changed_when: false
+  failed_when: false
+
+- name: Fallback - Listar updates críticos e de segurança (COM)
+  ansible.windows.win_powershell:
+    script: |
+      $session = New-Object -ComObject Microsoft.Update.Session
+      $searcher = $session.CreateUpdateSearcher()
+      $result = $searcher.Search("IsInstalled=0").Updates
+
+      $result | Where-Object {
+        $_.Categories | Where-Object {
+          $_.Name -in @("Security Updates","Critical Updates")
+        }
+      } | Select-Object Title
+  register: fallback_updates
+  failed_when: false
+  timeout: "{{ fallback_timeout }}"
+
+- name: Inicializar estrutura JSON (FALLBACK)
+  set_fact:
+    updates_json:
+      host: "{{ inventory_hostname }}"
+      scan_date: "{{ lookup('pipe', 'date -Is') }}"
+      status: "ok"
+      error: none
+      scan_method: "FALLBACK"
+      reboot_pending: "{{ reboot_check is defined and reboot_check.stdout is defined and (reboot_check.stdout | trim | lower == 'true') }}"
+      os_version: "{{ os_version_result.stdout | default('Unknown') }}"
+      updates: []
+
+- name: Adicionar updates via fallback COM
+  set_fact:
+    updates_json: "{{ updates_json | combine({
+      'updates': updates_json.updates + [ {
+        'kb': none,
+        'title': item.Title
+      } ]
+    }) }}"
+  loop: "{{ fallback_updates.output | default([]) }}"
+  when: fallback_updates.output | default([]) | length > 0
